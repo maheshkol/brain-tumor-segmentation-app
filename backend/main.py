@@ -16,14 +16,14 @@ app = FastAPI(title="Brain Tumor Segmentation API")
 
 model = None  # global reference
 
-MODEL_PATH = "backend/models/unet_brats_trained.pth"
+MODEL_PATH = "models/unet_brats_trained.pth"
 MODEL_URL = "https://huggingface.co/maheshkol/brain-tumor-unet/resolve/main/unet_brats_trained.pth"
 
 @app.on_event("startup")
 def startup_event():
     global model
     #model = load_model("models/unet_brats_trained.pth")
-    os.makedirs("backend/models", exist_ok=True)
+    os.makedirs("models", exist_ok=True)
 
     if not os.path.exists(MODEL_PATH):
         print("⬇️ Downloading model from HuggingFace...")
