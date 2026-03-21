@@ -6,6 +6,7 @@ import torch
 from pathlib import Path
 import shutil
 import os
+import requests 
 PORT = int(os.environ.get("PORT", 8000))
 
 from .preprocessing import preprocess
@@ -19,9 +20,27 @@ model = None  # global reference
 @app.on_event("startup")
 def startup_event():
     global model
-    model = load_model("models/unet_brats_trained.pth")
-    model.eval()
-    print("✅ Model loaded successfully")
+    #model = load_model("models/unet_brats_trained.pth")
+    MODEL_PATH = "models/unet_brats_trained.pth"
+    MODEL_URL = "https://huggingface.co/maheshkol/brain-tumor-unet/resolve/main/unet_brats_trained.pth"
+
+    @app.on_event("startup")
+    def startup_event():
+        global model
+
+        os.makedirs("models", exist_ok=True)
+
+        if not os.path.exists(MODEL_PATH):
+            print("⬇️ Downloading model from HuggingFace...")
+
+            response = requests.get(MODEL_URL, stream=True)
+            with open(MODEL_PATH, "wb") as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+
+        model = load_model(MODEL_PATH)
+        model.eval()
+        print("✅ Model loaded successfully")
 
 
 @app.post("/predict")
