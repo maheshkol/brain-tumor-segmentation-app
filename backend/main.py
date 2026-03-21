@@ -16,34 +16,55 @@ app = FastAPI(title="Brain Tumor Segmentation API")
 
 model = None  # global reference
 
-MODEL_PATH = "models/unet_brats_trained.pth"
+# ✅ Get correct base path (VERY IMPORTANT for Render)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))   # backend folder
+MODEL_DIR = os.path.join(BASE_DIR, "models")
+MODEL_PATH = os.path.join(MODEL_DIR, "unet_brats_trained.pth")
+
 MODEL_URL = "https://huggingface.co/maheshkol/brain-tumor-unet/resolve/main/unet_brats_trained.pth"
+
 
 @app.on_event("startup")
 def startup_event():
     global model
-    #model = load_model("models/unet_brats_trained.pth")
-    os.makedirs("models", exist_ok=True)
 
+    # ✅ Ensure models folder exists
+    os.makedirs(MODEL_DIR, exist_ok=True)
+
+    # ------------------------------
+    # Download model if not exists
+    # ------------------------------
     if not os.path.exists(MODEL_PATH):
         print("⬇️ Downloading model from HuggingFace...")
+        print("Saving to:", MODEL_PATH)
 
         response = requests.get(MODEL_URL, stream=True)
 
+        # 🔥 Check response
+        print("Status Code:", response.status_code)
+
         if response.status_code != 200:
-            raise RuntimeError("❌ Failed to download model from HuggingFace")
+            raise RuntimeError(f"❌ Failed to download model. Status: {response.status_code}")
 
         with open(MODEL_PATH, "wb") as f:
             for chunk in response.iter_content(chunk_size=8192):
                 if chunk:
                     f.write(chunk)
 
-        print("✅ Model downloaded")
+        print("✅ Model downloaded successfully")
 
-    # 🔥 VERIFY FILE EXISTS
+    # ------------------------------
+    # Verify file exists
+    # ------------------------------
+    print("Checking model path:", MODEL_PATH)
+    print("File exists?", os.path.exists(MODEL_PATH))
+
     if not os.path.exists(MODEL_PATH):
-        raise FileNotFoundError(f"Model still missing at: {MODEL_PATH}")
+        raise FileNotFoundError(f"❌ Model still missing at: {MODEL_PATH}")
 
+    # ------------------------------
+    # Load model
+    # ------------------------------
     print("📦 Loading model...")
     model = load_model(MODEL_PATH)
     model.eval()
