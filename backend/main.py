@@ -120,23 +120,29 @@ async def predict(file: UploadFile = File(...), gradcam: bool = False):
     if gradcam:
         gradcam_overlay = generate_gradcam(model, tensor, raw_color)
 
+    mask = cv2.resize(mask, (256, 256))
+    overlay = cv2.resize(overlay, (256, 256))
 
-    _, m_buf = cv2.imencode(".png", mask)
-    _, o_buf = cv2.imencode(".png", overlay)
-    _, c_buf = cv2.imencode(".png", confidence_map) 
+    #To reduce image size
+    _, m_buf = cv2.imencode(".jpg", mask, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
+    _, o_buf = cv2.imencode(".jpg", overlay, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
+    
+    #_, m_buf = cv2.imencode(".png", mask)
+    #_, o_buf = cv2.imencode(".png", overlay)
+    #_, c_buf = cv2.imencode(".png", confidence_map) 
     #_, g_buf = cv2.imencode(".png", gradcam_overlay)
 
     response = {
         "mask": base64.b64encode(m_buf).decode("utf-8"),
         "overlay": base64.b64encode(o_buf).decode("utf-8"),
-        "confidence": base64.b64encode(c_buf).decode("utf-8"),
+        #"confidence": base64.b64encode(c_buf).decode("utf-8"),
     
     }
 
    
     if gradcam_overlay is not None and gradcam_overlay.size != 0:
         _, g_buf = cv2.imencode(".png", gradcam_overlay)
-        response["gradcam"] = base64.b64encode(g_buf).decode("utf-8")
+        #response["gradcam"] = base64.b64encode(g_buf).decode("utf-8")
 
 
     return response
