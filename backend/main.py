@@ -5,6 +5,9 @@ import numpy as np
 import torch
 from pathlib import Path
 import shutil
+import os
+import requests 
+PORT = int(os.environ.get("PORT", 8000))
 
 from .preprocessing import preprocess
 from .inference import load_model, generate_gradcam
@@ -13,14 +16,67 @@ app = FastAPI(title="Brain Tumor Segmentation API")
 
 model = None  # global reference
 
+# ✅ Get correct base path (VERY IMPORTANT for Render)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))   # backend folder
+MODEL_DIR = os.path.join(BASE_DIR, "models")
+MODEL_PATH = os.path.join(MODEL_DIR, "unet_brats_trained.pth")
+
+MODEL_URL = "https://huggingface.co/maheshkol/brain-tumor-unet/resolve/main/unet_brats_trained.pth"
+
+@app.get("/")
+def home():
+    return {
+        "app": "Brain Tumor Segmentation API",
+        "status": "running",
+        "endpoint": "/predict"
+    }
 
 @app.on_event("startup")
 def startup_event():
     global model
-    model = load_model("models/unet_brats_trained.pth")
-    model.eval()
-    print("✅ Model loaded successfully")
 
+    # ✅ Ensure models folder exists
+    os.makedirs(MODEL_DIR, exist_ok=True)
+
+    # ------------------------------
+    # Download model if not exists
+    # ------------------------------
+    if not os.path.exists(MODEL_PATH):
+        print("⬇️ Downloading model from HuggingFace...")
+        print("Saving to:", MODEL_PATH)
+
+        response = requests.get(MODEL_URL, stream=True)
+
+        # 🔥 Check response
+        print("Status Code:", response.status_code)
+
+        if response.status_code != 200:
+            raise RuntimeError(f"❌ Failed to download model. Status: {response.status_code}")
+
+        with open(MODEL_PATH, "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    f.write(chunk)
+
+        print("✅ Model downloaded successfully")
+
+    # ------------------------------
+    # Verify file exists
+    # ------------------------------
+    print("Checking model path:", MODEL_PATH)
+    print("File exists?", os.path.exists(MODEL_PATH))
+
+    if not os.path.exists(MODEL_PATH):
+        raise FileNotFoundError(f"❌ Model still missing at: {MODEL_PATH}")
+
+    # ------------------------------
+    # Load model
+    # ------------------------------
+    print("📦 Loading model...")
+    model = load_model(MODEL_PATH)
+    model.eval()
+
+    print("✅ Model loaded successfully")
 
 @app.post("/predict")
 #async def predict(file: UploadFile = File(...)):
@@ -64,23 +120,29 @@ async def predict(file: UploadFile = File(...), gradcam: bool = False):
     if gradcam:
         gradcam_overlay = generate_gradcam(model, tensor, raw_color)
 
+    mask = cv2.resize(mask, (256, 256))
+    overlay = cv2.resize(overlay, (256, 256))
 
-    _, m_buf = cv2.imencode(".png", mask)
-    _, o_buf = cv2.imencode(".png", overlay)
-    _, c_buf = cv2.imencode(".png", confidence_map) 
+    #To reduce image size
+    _, m_buf = cv2.imencode(".jpg", mask, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
+    _, o_buf = cv2.imencode(".jpg", overlay, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
+    
+    #_, m_buf = cv2.imencode(".png", mask)
+    #_, o_buf = cv2.imencode(".png", overlay)
+    #_, c_buf = cv2.imencode(".png", confidence_map) 
     #_, g_buf = cv2.imencode(".png", gradcam_overlay)
 
     response = {
         "mask": base64.b64encode(m_buf).decode("utf-8"),
         "overlay": base64.b64encode(o_buf).decode("utf-8"),
-        "confidence": base64.b64encode(c_buf).decode("utf-8"),
+        #"confidence": base64.b64encode(c_buf).decode("utf-8"),
     
     }
 
    
     if gradcam_overlay is not None and gradcam_overlay.size != 0:
         _, g_buf = cv2.imencode(".png", gradcam_overlay)
-        response["gradcam"] = base64.b64encode(g_buf).decode("utf-8")
+        #response["gradcam"] = base64.b64encode(g_buf).decode("utf-8")
 
 
     return response

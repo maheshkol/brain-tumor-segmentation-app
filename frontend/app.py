@@ -14,7 +14,8 @@ from reportlab.lib.styles import getSampleStyleSheet
 # ------------------------------
 # CONFIG
 # ------------------------------
-BACKEND_URL = "http://127.0.0.1:8000/predict"
+#BACKEND_URL = "http://127.0.0.1:8000/predict"
+BACKEND_URL = "https://brain-tumor-segmentation-app.onrender.com/predict"
 
 st.set_page_config(
     page_title="Brain Tumor Segmentation AI",
@@ -199,7 +200,7 @@ if uploaded_file is not None:
                     BACKEND_URL,
                     files=files,
                     params={"gradcam": show_gradcam},
-                    timeout=300
+                    timeout=600
                 )
             except requests.exceptions.ConnectionError:
                 st.error("❌ Cannot connect to backend. Is FastAPI running?")
