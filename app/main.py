@@ -18,7 +18,7 @@ from .inference import load_model
 app = FastAPI(title="Brain Tumor Segmentation API")
 
 # Load model once at startup
-model = load_model("models/unet_brats_trained.pth")
+model = load_model("https://huggingface.co/maheshkol/brain-tumor-unet")
 
 
 @app.post("/predict")
